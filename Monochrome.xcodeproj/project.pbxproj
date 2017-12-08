@@ -12,6 +12,8 @@
 		9F49E90E1FD5B76400C5F665 /* Document.xib in Resources */ = {isa = PBXBuildFile; fileRef = 9F49E90C1FD5B76400C5F665 /* Document.xib */; };
 		9F49E9101FD5B76400C5F665 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9F49E90F1FD5B76400C5F665 /* Assets.xcassets */; };
 		9F49E9131FD5B76400C5F665 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 9F49E9111FD5B76400C5F665 /* MainMenu.xib */; };
+		9F4EA54B1FDB3EEC0027911F /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F4EA5491FDB3EEC0027911F /* Preferences.swift */; };
+		9F4EA54C1FDB3EEC0027911F /* Preferences.xib in Resources */ = {isa = PBXBuildFile; fileRef = 9F4EA54A1FDB3EEC0027911F /* Preferences.xib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +25,8 @@
 		9F49E9121FD5B76400C5F665 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		9F49E9141FD5B76400C5F665 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9F49E9151FD5B76400C5F665 /* Monochrome.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Monochrome.entitlements; sourceTree = "<group>"; };
+		9F4EA5491FDB3EEC0027911F /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
+		9F4EA54A1FDB3EEC0027911F /* Preferences.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = Preferences.xib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,6 +61,8 @@
 			children = (
 				9F49E9081FD5B76400C5F665 /* AppDelegate.swift */,
 				9F49E90A1FD5B76400C5F665 /* Document.swift */,
+				9F4EA5491FDB3EEC0027911F /* Preferences.swift */,
+				9F4EA54A1FDB3EEC0027911F /* Preferences.xib */,
 				9F49E90C1FD5B76400C5F665 /* Document.xib */,
 				9F49E90F1FD5B76400C5F665 /* Assets.xcassets */,
 				9F49E9111FD5B76400C5F665 /* MainMenu.xib */,
@@ -132,6 +138,7 @@
 			files = (
 				9F49E9101FD5B76400C5F665 /* Assets.xcassets in Resources */,
 				9F49E90E1FD5B76400C5F665 /* Document.xib in Resources */,
+				9F4EA54C1FDB3EEC0027911F /* Preferences.xib in Resources */,
 				9F49E9131FD5B76400C5F665 /* MainMenu.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -145,6 +152,7 @@
 			files = (
 				9F49E90B1FD5B76400C5F665 /* Document.swift in Sources */,
 				9F49E9091FD5B76400C5F665 /* AppDelegate.swift in Sources */,
+				9F4EA54B1FDB3EEC0027911F /* Preferences.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -9,6 +9,8 @@
 import Cocoa
 import WebKit
 
+let defaults = UserDefaults.standard
+
 class Document: NSDocument, WKNavigationDelegate, WKUIDelegate {
     @IBOutlet var mainWindow: NSWindow!
     @IBOutlet weak var webView: WKWebView!
@@ -20,7 +22,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate {
     @IBOutlet weak var reload: NSButton!
     @IBOutlet weak var loading: NSProgressIndicator!
     
-    let homeURL = URL(string: "https://duckduckgo.com/html/")
+    let homeURL = URL(string: defaults.string(forKey: "Homepage") ?? "https://duckduckgo.com/html/")
     
     @IBAction func goHome(sender: NSToolbarItem) {
         let requested = URLRequest(url: homeURL!)
@@ -63,6 +65,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate {
     
     @IBAction func openAddress(sender: NSToolbarItem) {
         var url: String
+        let searchEngine = defaults.string(forKey: "SearchEngine") ?? "https://duckduckgo.com/html/?q="
         let address = textField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if ((address?.hasPrefix("http://"))! || (address?.hasPrefix("https://"))!) {
@@ -71,7 +74,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate {
             if (address?.range(of: ".") != nil) {
                 url = "http://" + address!
             } else {
-                url = "https://duckduckgo.com/html/?q=" + (address?.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed))!
+                url = searchEngine + (address?.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed))!
             }
         }
         
