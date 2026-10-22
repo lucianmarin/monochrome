@@ -137,7 +137,7 @@ final class BrowsingHistory {
     }
 }
 
-class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSTextFieldDelegate {
+class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSTextFieldDelegate {
     @IBOutlet var mainWindow: NSWindow!
     @IBOutlet weak var webView: WKWebView!
     @IBOutlet var textField: NSTextField!
@@ -158,9 +158,12 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
         static let loading = NSToolbarItem.Identifier("Loading")
     }
 
+    private static let windowFrameAutosaveKey = "MonochromeWindow"
+
     private var observations: [NSKeyValueObservation] = []
     private var lastCommandWasDelete = false
     private var isAutocompleting = false
+    private var isWindowFrameRestored = false
 
     var homeURL: URL {
         let homepage = defaults.string(forKey: "Homepage")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -222,8 +225,27 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
         frame.size = targetSize
         if let screen = window.screen ?? NSScreen.main {
             frame = window.constrainFrameRect(frame, to: screen)
+            if frame.origin.y < screen.visibleFrame.minY {
+                frame.origin.y = max(screen.frame.minY, min(screen.visibleFrame.minY, screen.visibleFrame.maxY - frame.size.height))
+            }
         }
         window.setFrame(frame, display: true, animate: animate)
+        window.saveFrame(usingName: Self.windowFrameAutosaveKey)
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard isWindowFrameRestored else { return }
+        (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard isWindowFrameRestored else { return }
+        (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard isWindowFrameRestored else { return }
+        (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
     }
 
     @IBAction func resize5s(sender: Any) {
@@ -543,9 +565,15 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
     override func windowControllerDidLoadNib(_ windowController: NSWindowController) {
         super.windowControllerDidLoadNib(windowController)
 
+        windowController.shouldCascadeWindows = false
         if let window = windowController.window ?? mainWindow {
             setupToolbar(for: window)
-            resizeWindow(width: 375, height: 667, animate: false)
+            if !window.setFrameUsingName(Self.windowFrameAutosaveKey) {
+                resizeWindow(width: 375, height: 667, animate: false)
+            }
+            window.setFrameAutosaveName(Self.windowFrameAutosaveKey)
+            window.delegate = self
+            isWindowFrameRestored = true
         }
         updateNavigationState()
 
