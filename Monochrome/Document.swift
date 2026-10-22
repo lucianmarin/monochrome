@@ -167,7 +167,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
         if let url = URL(string: homepage), !homepage.isEmpty {
             return url
         }
-        return URL(string: "https://duckduckgo.com/html/")!
+        return URL(string: "https://html.duckduckgo.com/html/")!
     }
 
     private func toolbarSymbol(_ symbolName: String, fallback: NSImage.Name, description: String) -> NSImage? {
@@ -257,7 +257,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
     }
 
     @IBAction func openAddress(sender: Any) {
-        let searchEngine = defaults.string(forKey: "SearchEngine") ?? "https://duckduckgo.com/html/?q="
+        let searchEngine = defaults.string(forKey: "SearchEngine") ?? "https://html.duckduckgo.com/html/?q="
         let rawInput = (textField?.currentEditor()?.string ?? textField?.stringValue)?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let address = rawInput, !address.isEmpty else {
             return

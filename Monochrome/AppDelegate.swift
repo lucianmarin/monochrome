@@ -14,8 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         defaults.register(defaults: [
-            "Homepage": "https://duckduckgo.com/html/",
-            "SearchEngine": "https://duckduckgo.com/html/?q="
+            "Homepage": "https://html.duckduckgo.com/html/",
+            "SearchEngine": "https://html.duckduckgo.com/html/?q="
         ])
         super.init()
     }
@@ -24,10 +24,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let homepage = defaults.string(forKey: "Homepage") ?? ""
         let searchEngine = defaults.string(forKey: "SearchEngine") ?? ""
         if homepage.isEmpty {
-            defaults.set("https://duckduckgo.com/html/", forKey: "Homepage")
+            defaults.set("https://html.duckduckgo.com/html/", forKey: "Homepage")
         }
         if searchEngine.isEmpty {
-            defaults.set("https://duckduckgo.com/html/?q=", forKey: "SearchEngine")
+            defaults.set("https://html.duckduckgo.com/html/?q=", forKey: "SearchEngine")
         }
     }
 
