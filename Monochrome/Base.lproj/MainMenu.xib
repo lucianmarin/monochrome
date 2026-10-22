@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="13771" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="25098" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="13771"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="25098"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -335,19 +335,34 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="hB3-LF-h0Y"/>
-                            <menuItem title="Small (320px)" keyEquivalent="1" id="X4x-cB-WBh">
+                            <menuItem title="5s (320px)" keyEquivalent="1" id="X4x-cB-WBh">
                                 <connections>
-                                    <action selector="resizeSmallWithSender:" target="-1" id="5sM-lV-ocA"/>
+                                    <action selector="resize5sWithSender:" target="-1" id="5sM-lV-ocA"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Medium (360px)" keyEquivalent="2" id="f4P-TE-wyp">
+                            <menuItem title="Mini (360px)" keyEquivalent="2" id="f4P-TE-wyp">
                                 <connections>
-                                    <action selector="resizeMediumWithSender:" target="-1" id="ORg-rN-M20"/>
+                                    <action selector="resizeMiniWithSender:" target="-1" id="ORg-rN-M20"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Large (375px)" keyEquivalent="3" id="U3k-ml-HLN">
+                            <menuItem title="SE (375px)" keyEquivalent="3" id="U3k-ml-HLN">
                                 <connections>
-                                    <action selector="resizeLargeWithSender:" target="-1" id="mx5-Te-MFQ"/>
+                                    <action selector="resizeSEWithSender:" target="-1" id="mx5-Te-MFQ"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="e (390px)" keyEquivalent="4" id="e39-0p-x04">
+                                <connections>
+                                    <action selector="resizeEWithSender:" target="-1" id="e39-ac-t04"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Pro (402px)" keyEquivalent="5" id="p40-2p-x05">
+                                <connections>
+                                    <action selector="resizeProWithSender:" target="-1" id="p40-ac-t05"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Max (440px)" keyEquivalent="6" id="m44-0p-x06">
+                                <connections>
+                                    <action selector="resizeMaxWithSender:" target="-1" id="m44-ac-t06"/>
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="uQc-bU-MS8"/>
@@ -436,6 +451,7 @@
                     </menu>
                 </menuItem>
             </items>
+            <point key="canvasLocation" x="139" y="154"/>
         </menu>
         <customObject id="Wn7-Yd-dHH" customClass="Preferences" customModule="Monochrome" customModuleProvider="target"/>
     </objects>
