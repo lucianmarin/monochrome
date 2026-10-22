@@ -11,7 +11,133 @@ import WebKit
 
 let defaults = UserDefaults.standard
 
-class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate {
+final class BrowsingHistory {
+    static let shared = BrowsingHistory()
+
+    private let storageKey = "BrowsingHistory"
+    private let maxEntries = 1000
+    private var entries: [String] = []
+
+    private init() {
+        load()
+    }
+
+    static func compactString(for url: URL) -> String? {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              let host = components.host?.lowercased(),
+              !host.isEmpty else {
+            return nil
+        }
+
+        components.scheme = scheme
+        components.host = host
+        components.fragment = nil
+
+        guard var result = components.string else { return nil }
+
+        if result.hasPrefix("https://") {
+            result.removeFirst("https://".count)
+        }
+
+        if components.path == "/" && components.query == nil && result.hasSuffix("/") {
+            result.removeLast()
+        }
+
+        return result.isEmpty ? nil : result
+    }
+
+    func record(_ url: URL) {
+        guard let compact = Self.compactString(for: url) else { return }
+        if let existingIndex = entries.firstIndex(where: { $0.caseInsensitiveCompare(compact) == .orderedSame }) {
+            if existingIndex == 0 && entries[0] == compact {
+                return
+            }
+            entries.remove(at: existingIndex)
+        }
+        entries.insert(compact, at: 0)
+        if entries.count > maxEntries {
+            entries.removeLast(entries.count - maxEntries)
+        }
+        save()
+    }
+
+    func suggestion(for input: String) -> String? {
+        guard !input.isEmpty else { return nil }
+        let lowerInput = input.lowercased()
+        let hasScheme = lowerInput.hasPrefix("http://") || lowerInput.hasPrefix("https://")
+        let hasWWW = lowerInput.hasPrefix("www.") || lowerInput.hasPrefix("http://www.") || lowerInput.hasPrefix("https://www.")
+        let hasQuery = lowerInput.contains("?")
+
+        func matchCandidate(from entry: String) -> String? {
+            if hasScheme {
+                let fullEntry = entry.hasPrefix("http://") ? entry : "https://" + entry
+                if fullEntry.lowercased().hasPrefix(lowerInput) {
+                    return fullEntry
+                }
+                return nil
+            }
+
+            let strippedEntry: String
+            if entry.hasPrefix("http://") {
+                strippedEntry = String(entry.dropFirst("http://".count))
+            } else {
+                strippedEntry = entry
+            }
+
+            if strippedEntry.lowercased().hasPrefix(lowerInput) {
+                return strippedEntry
+            }
+
+            if !hasWWW && strippedEntry.lowercased().hasPrefix("www.") {
+                let withoutWWW = String(strippedEntry.dropFirst(4))
+                if withoutWWW.lowercased().hasPrefix(lowerInput) {
+                    return withoutWWW
+                }
+            }
+
+            return nil
+        }
+
+        if !hasQuery {
+            for entry in entries where !entry.contains("?") {
+                if let match = matchCandidate(from: entry), match.count > input.count {
+                    return match
+                }
+            }
+        }
+
+        for entry in entries {
+            if let match = matchCandidate(from: entry), match.count > input.count {
+                return match
+            }
+        }
+
+        return nil
+    }
+
+    private func load() {
+        guard let compressed = defaults.data(forKey: storageKey) else { return }
+        let rawData: Data
+        if let decompressed = try? (compressed as NSData).decompressed(using: .lzfse) as Data {
+            rawData = decompressed
+        } else {
+            rawData = compressed
+        }
+        guard let text = String(data: rawData, encoding: .utf8), !text.isEmpty else { return }
+        entries = text.components(separatedBy: "\n").filter { !$0.isEmpty }
+    }
+
+    private func save() {
+        let joined = entries.joined(separator: "\n")
+        guard let rawData = joined.data(using: .utf8) else { return }
+        let stored = (try? (rawData as NSData).compressed(using: .lzfse) as Data) ?? rawData
+        defaults.set(stored, forKey: storageKey)
+    }
+}
+
+class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegate, NSTextFieldDelegate {
     @IBOutlet var mainWindow: NSWindow!
     @IBOutlet weak var webView: WKWebView!
     @IBOutlet var textField: NSTextField!
@@ -33,6 +159,8 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
     }
 
     private var observations: [NSKeyValueObservation] = []
+    private var lastCommandWasDelete = false
+    private var isAutocompleting = false
 
     var homeURL: URL {
         let homepage = defaults.string(forKey: "Homepage")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -130,8 +258,8 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
 
     @IBAction func openAddress(sender: Any) {
         let searchEngine = defaults.string(forKey: "SearchEngine") ?? "https://duckduckgo.com/html/?q="
-        guard let address = textField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines),
-              !address.isEmpty else {
+        let rawInput = (textField?.currentEditor()?.string ?? textField?.stringValue)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let address = rawInput, !address.isEmpty else {
             return
         }
 
@@ -148,8 +276,51 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
         }
 
         guard let targetURL = URL(string: urlString) else { return }
+        BrowsingHistory.shared.record(targetURL)
         webView.load(URLRequest(url: targetURL))
         mainWindow?.makeFirstResponder(webView)
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.deleteBackward(_:)) ||
+           commandSelector == #selector(NSResponder.deleteForward(_:)) ||
+           commandSelector == #selector(NSResponder.deleteWordBackward(_:)) ||
+           commandSelector == #selector(NSResponder.deleteToBeginningOfLine(_:)) {
+            lastCommandWasDelete = true
+        }
+        return false
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        defer { lastCommandWasDelete = false }
+        guard !isAutocompleting,
+              !lastCommandWasDelete,
+              let editor = obj.userInfo?["NSFieldEditor"] as? NSTextView,
+              !editor.hasMarkedText() else {
+            return
+        }
+
+        let currentText = editor.string
+        let nsCurrent = currentText as NSString
+        let selection = editor.selectedRange()
+        guard selection.location == nsCurrent.length,
+              selection.length == 0,
+              nsCurrent.length > 0 else {
+            return
+        }
+
+        guard let suggestion = BrowsingHistory.shared.suggestion(for: currentText) else {
+            return
+        }
+
+        let nsSuggestion = suggestion as NSString
+        guard nsSuggestion.length > nsCurrent.length else { return }
+
+        let suffix = nsSuggestion.substring(from: nsCurrent.length)
+        isAutocompleting = true
+        editor.replaceCharacters(in: NSRange(location: nsCurrent.length, length: 0), with: suffix)
+        editor.selectedRange = NSRange(location: nsCurrent.length, length: (suffix as NSString).length)
+        isAutocompleting = false
     }
 
     private func updateLoadingState(isLoading: Bool) {
@@ -207,6 +378,9 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let url = webView.url {
+            BrowsingHistory.shared.record(url)
+        }
         updateLoadingState(isLoading: false)
         updateNavigationState()
     }
@@ -275,6 +449,7 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
         addressField.cell?.isScrollable = true
         addressField.cell?.sendsActionOnEndEditing = false
         addressField.placeholderString = "Search or enter address"
+        addressField.delegate = self
         addressField.target = self
         addressField.action = #selector(openAddress(sender:))
         addressField.translatesAutoresizingMaskIntoConstraints = false
@@ -381,7 +556,10 @@ class Document: NSDocument, WKNavigationDelegate, WKUIDelegate, NSToolbarDelegat
             webView.observe(\.canGoForward, options: [.new]) { [weak self] _, _ in
                 self?.updateNavigationState()
             },
-            webView.observe(\.url, options: [.new]) { [weak self] _, _ in
+            webView.observe(\.url, options: [.new]) { [weak self] webView, _ in
+                if let url = webView.url {
+                    BrowsingHistory.shared.record(url)
+                }
                 self?.updateNavigationState()
             },
             webView.observe(\.title, options: [.new]) { [weak self] _, _ in
