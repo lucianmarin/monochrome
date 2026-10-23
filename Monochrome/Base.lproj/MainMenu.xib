@@ -334,6 +334,11 @@
                                     <action selector="runToolbarCustomizationPalette:" target="-1" id="pQI-g3-MTW"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Show Status Bar" keyEquivalent="/" id="sbr-mn-001">
+                                <connections>
+                                    <action selector="toggleStatusBar:" target="-1" id="sbr-ac-001"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="hB3-LF-h0Y"/>
                             <menuItem title="5s (320px)" keyEquivalent="1" id="X4x-cB-WBh">
                                 <connections>

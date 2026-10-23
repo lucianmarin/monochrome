@@ -9,6 +9,7 @@
 - **Mobile Viewport & User Agent**: Sends an iOS Safari (`iPhone`) user agent so websites serve their fast, clean mobile layouts on macOS.
 - **iPhone Viewport Presets**: Quickly switch between 6 standard iPhone logical viewport dimensions (`⌘1`–`⌘6`), defaulting to **SE (`375 × 667`)** with resizable bounds from `320 × 480` up to `440 × 956`.
 - **Compact Expanded Toolbar**: Native macOS toolbar displaying **Back**, **Reload / Stop**, **Home**, and the **Address** field by default, with optional customizable items (**Forward**, **New**, **Loading** indicator, spaces).
+- **Toggleable Status Bar**: Optional bottom status bar (hidden by default, toggleable from **View → Show Status Bar** or `⌘/`) showing the downloading page size and total site size (`KB` / `MB`) on the left and live window dimensions (`width × height px`) on the right.
 - **LZFSE-Compressed Browsing History**: Stores up to 1,000 normalized, deduplicated URLs in most-recently-used (MRU) order inside `UserDefaults` using Apple's LZFSE compression—requiring zero external database files.
 - **Inline Address Bar Autocomplete**: Suggests and highlights matching URL suffixes from browsing history as you type, handling optional `http(s)://` and `www.` prefixes and prioritizing clean paths before query strings.
 - **Smart Address & Search Bar**: Navigates directly to URLs or domains and routes search queries through a configurable search engine (defaulting to DuckDuckGo HTML: `https://html.duckduckgo.com/html/?q=`).
@@ -47,6 +48,7 @@ Accessible from the **View** menu or via keyboard shortcuts:
 | Find on Page | `⌘F` |
 | Preferences | `⌘,` |
 | Customize Toolbar | `⌥⌘T` |
+| Show / Hide Status Bar | `⌘/` |
 | Resize Window (`5s` – `Max`) | `⌘1` – `⌘6` |
 
 ---

@@ -15,7 +15,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     override init() {
         defaults.register(defaults: [
             "Homepage": "https://html.duckduckgo.com/html/",
-            "SearchEngine": "https://html.duckduckgo.com/html/?q="
+            "SearchEngine": "https://html.duckduckgo.com/html/?q=",
+            "ShowStatusBar": false
         ])
         super.init()
     }

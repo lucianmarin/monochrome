@@ -159,11 +159,47 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     private static let windowFrameAutosaveKey = "MonochromeWindow"
+    private static let statusBarDefaultsKey = "ShowStatusBar"
+    private static let statusBarHeight: CGFloat = 22
+    private static let pageSizeScript = """
+    (function() {
+        function entryBytes(e) {
+            if (!e) return 0;
+            if (e.transferSize && e.transferSize > 0) return e.transferSize;
+            if (e.encodedBodySize && e.encodedBodySize > 0) return e.encodedBodySize;
+            if (e.decodedBodySize && e.decodedBodySize > 0) return e.decodedBodySize;
+            return 0;
+        }
+        var navEntries = (window.performance && performance.getEntriesByType) ? performance.getEntriesByType('navigation') : [];
+        var navBytes = 0;
+        for (var i = 0; i < navEntries.length; i++) {
+            navBytes += entryBytes(navEntries[i]);
+        }
+        var domBytes = 0;
+        if (document.documentElement && document.documentElement.outerHTML) {
+            domBytes = new TextEncoder().encode(document.documentElement.outerHTML).length;
+        }
+        var total = Math.max(navBytes, domBytes);
+        var resEntries = (window.performance && performance.getEntriesByType) ? performance.getEntriesByType('resource') : [];
+        for (var j = 0; j < resEntries.length; j++) {
+            total += entryBytes(resEntries[j]);
+        }
+        return total;
+    })();
+    """
 
     private var observations: [NSKeyValueObservation] = []
     private var lastCommandWasDelete = false
     private var isAutocompleting = false
     private var isWindowFrameRestored = false
+    private var isStatusBarVisible = defaults.bool(forKey: Document.statusBarDefaultsKey)
+    private var statusBarView: NSView?
+    private var statusPageSizeLabel: NSTextField?
+    private var statusSizeLabel: NSTextField?
+    private var webViewBottomConstraint: NSLayoutConstraint?
+    private var statusSizeTimer: Timer?
+    private var hasCommittedNavigation = false
+    private var currentPageBytes: Int64 = 0
 
     var homeURL: URL {
         let homepage = defaults.string(forKey: "Homepage")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -231,6 +267,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         }
         window.setFrame(frame, display: true, animate: animate)
         window.saveFrame(usingName: Self.windowFrameAutosaveKey)
+        updateStatusBarSize(for: window)
     }
 
     func windowDidMove(_ notification: Notification) {
@@ -239,13 +276,28 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     func windowDidResize(_ notification: Notification) {
+        let window = notification.object as? NSWindow ?? mainWindow
+        updateStatusBarSize(for: window)
+        guard isWindowFrameRestored else { return }
+        window?.saveFrame(usingName: Self.windowFrameAutosaveKey)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        statusSizeTimer?.invalidate()
+        statusSizeTimer = nil
         guard isWindowFrameRestored else { return }
         (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
     }
 
-    func windowWillClose(_ notification: Notification) {
-        guard isWindowFrameRestored else { return }
-        (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
+    @IBAction func toggleStatusBar(_ sender: Any?) {
+        isStatusBarVisible.toggle()
+        defaults.set(isStatusBarVisible, forKey: Self.statusBarDefaultsKey)
+        statusBarView?.isHidden = !isStatusBarVisible
+        webViewBottomConstraint?.constant = isStatusBarVisible ? -Self.statusBarHeight : 0
+        if isStatusBarVisible {
+            updateStatusBarSize()
+            refreshPageSize()
+        }
     }
 
     @IBAction func resize5s(sender: Any) {
@@ -350,10 +402,62 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
             reload?.image = toolbarSymbol("xmark", fallback: NSImage.stopProgressTemplateName, description: "Stop")
             loading?.usesThreadedAnimation = true
             loading?.startAnimation(reload)
+            startPageSizeTracking()
         } else {
             reload?.image = toolbarSymbol("arrow.clockwise", fallback: NSImage.refreshTemplateName, description: "Reload")
             loading?.stopAnimation(reload)
+            stopPageSizeTracking()
         }
+    }
+
+    private func formatByteSize(_ bytes: Int64) -> String {
+        guard bytes > 0 else { return "0 KB" }
+        let kb = Double(bytes) / 1024.0
+        if kb < 1024.0 {
+            return String(format: "%.1f KB", max(0.1, kb))
+        }
+        let mb = kb / 1024.0
+        return String(format: "%.1f MB", mb)
+    }
+
+    private func updateStatusBarPageSize(bytes: Int64) {
+        currentPageBytes = max(currentPageBytes, bytes)
+        statusPageSizeLabel?.stringValue = formatByteSize(currentPageBytes)
+    }
+
+    private func refreshPageSize() {
+        guard hasCommittedNavigation, let webView = webView else { return }
+        webView.evaluateJavaScript(Self.pageSizeScript) { [weak self] result, _ in
+            guard let self = self else { return }
+            if let number = result as? NSNumber {
+                self.updateStatusBarPageSize(bytes: number.int64Value)
+            }
+        }
+    }
+
+    private func startPageSizeTracking() {
+        guard statusSizeTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.15, repeats: true) { [weak self] _ in
+            self?.refreshPageSize()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        statusSizeTimer = timer
+    }
+
+    private func stopPageSizeTracking() {
+        statusSizeTimer?.invalidate()
+        statusSizeTimer = nil
+        refreshPageSize()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.refreshPageSize()
+        }
+    }
+
+    private func updateStatusBarSize(for window: NSWindow? = nil) {
+        guard let targetWindow = window ?? mainWindow ?? windowControllers.first?.window else { return }
+        let width = Int(round(targetWindow.frame.width))
+        let height = Int(round(targetWindow.frame.height))
+        statusSizeLabel?.stringValue = "\(width) × \(height) px"
     }
 
     private func updateNavigationState() {
@@ -384,19 +488,29 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
             return webView?.url != nil
         case #selector(goHome(sender:)):
             return webView?.url != homeURL
+        case #selector(toggleStatusBar(_:)):
+            if let menuItem = item as? NSMenuItem {
+                menuItem.title = isStatusBarVisible ? "Hide Status Bar" : "Show Status Bar"
+            }
+            return true
         default:
             return super.validateUserInterfaceItem(item)
         }
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        hasCommittedNavigation = false
+        currentPageBytes = 0
+        statusPageSizeLabel?.stringValue = formatByteSize(0)
         updateLoadingState(isLoading: true)
         updateNavigationState()
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        hasCommittedNavigation = true
         updateLoadingState(isLoading: true)
         updateNavigationState()
+        refreshPageSize()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -495,6 +609,73 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         window.toolbar = toolbar
     }
 
+    private func setupStatusBar(for window: NSWindow) {
+        guard let contentView = window.contentView else { return }
+
+        for constraint in contentView.constraints where
+            (constraint.firstItem as? NSView == webView && constraint.firstAttribute == .bottom) ||
+            (constraint.secondItem as? NSView == webView && constraint.secondAttribute == .bottom) {
+            constraint.isActive = false
+        }
+
+        let bottomConstraint = webView.bottomAnchor.constraint(
+            equalTo: contentView.bottomAnchor,
+            constant: isStatusBarVisible ? -Self.statusBarHeight : 0
+        )
+        bottomConstraint.isActive = true
+        webViewBottomConstraint = bottomConstraint
+
+        let bar = NSVisualEffectView()
+        bar.material = .windowBackground
+        bar.blendingMode = .withinWindow
+        bar.state = .followsWindowActiveState
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        bar.isHidden = !isStatusBarVisible
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+
+        let pageSizeLabel = NSTextField(labelWithString: "0 KB")
+        pageSizeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        pageSizeLabel.textColor = .secondaryLabelColor
+        pageSizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let sizeLabel = NSTextField(labelWithString: "")
+        sizeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        sizeLabel.textColor = .secondaryLabelColor
+        sizeLabel.alignment = .right
+        sizeLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        bar.addSubview(separator)
+        bar.addSubview(pageSizeLabel)
+        bar.addSubview(sizeLabel)
+        contentView.addSubview(bar)
+
+        NSLayoutConstraint.activate([
+            bar.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            bar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            bar.heightAnchor.constraint(equalToConstant: Self.statusBarHeight),
+
+            separator.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            separator.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            separator.topAnchor.constraint(equalTo: bar.topAnchor),
+
+            pageSizeLabel.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 10),
+            pageSizeLabel.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+
+            sizeLabel.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -10),
+            sizeLabel.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            sizeLabel.leadingAnchor.constraint(greaterThanOrEqualTo: pageSizeLabel.trailingAnchor, constant: 8)
+        ])
+
+        statusBarView = bar
+        statusPageSizeLabel = pageSizeLabel
+        statusSizeLabel = sizeLabel
+        updateStatusBarSize(for: window)
+    }
+
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [
             ToolbarItemID.back,
@@ -568,12 +749,14 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         windowController.shouldCascadeWindows = false
         if let window = windowController.window ?? mainWindow {
             setupToolbar(for: window)
+            setupStatusBar(for: window)
             if !window.setFrameUsingName(Self.windowFrameAutosaveKey) {
                 resizeWindow(width: 375, height: 667, animate: false)
             }
             window.setFrameAutosaveName(Self.windowFrameAutosaveKey)
             window.delegate = self
             isWindowFrameRestored = true
+            updateStatusBarSize(for: window)
         }
         updateNavigationState()
 
@@ -595,6 +778,9 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
             },
             webView.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
                 self?.updateLoadingState(isLoading: webView.isLoading)
+            },
+            webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+                self?.refreshPageSize()
             }
         ]
 
@@ -604,6 +790,10 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
 
     override init() {
         super.init()
+    }
+
+    deinit {
+        statusSizeTimer?.invalidate()
     }
 
     override var isDocumentEdited: Bool {
