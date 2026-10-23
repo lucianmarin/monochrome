@@ -12,7 +12,7 @@
 - **Toggleable Status Bar**: Optional bottom status bar (hidden by default, toggleable from **View → Show Status Bar** or `⌘/`) showing the downloading page size and total site size (`KB` / `MB`) on the left and live window dimensions (`width × height px`) on the right.
 - **LZFSE-Compressed Browsing History**: Stores up to 1,000 normalized, deduplicated URLs in most-recently-used (MRU) order inside `UserDefaults` using Apple's LZFSE compression—requiring zero external database files.
 - **Inline Address Bar Autocomplete**: Suggests and highlights matching URL suffixes from browsing history as you type, handling optional `http(s)://` and `www.` prefixes and prioritizing clean paths before query strings.
-- **Smart Address & Search Bar**: Navigates directly to URLs or domains and routes search queries through a configurable search engine (defaulting to DuckDuckGo HTML: `https://html.duckduckgo.com/html/?q=`).
+- **Smart Address & Search Bar**: Navigates directly to URLs or domains and routes search queries through a configurable search engine (defaulting to DuckDuckGo: `https://duckduckgo.com/?q=`).
 - **Multi-Window & Tabbed Browsing**: Built on `NSDocument` to support multiple independent browser windows and native macOS window tabs (`⌘N`, `⌘T`).
 - **Trackpad Gestures & Zoom**: Supports two-finger swipe back/forward navigation gestures and pinch-to-zoom magnification.
 
@@ -55,10 +55,12 @@ Accessible from the **View** menu or via keyboard shortcuts:
 
 ## Preferences & Defaults
 
-Open **Monochrome → Preferences…** (`⌘,`) to customize:
+Open **Monochrome → Preferences…** (`⌘,`) to choose a homepage and search engine preset or configure custom URLs:
 
-- **Homepage**: Default `https://html.duckduckgo.com/html/`
-- **Search Engine**: Default `https://html.duckduckgo.com/html/?q=`
+- **Brave**: `https://search.brave.com/` | `https://search.brave.com/search?q=`
+- **DuckDuckGo** *(Default)*: `https://duckduckgo.com/` | `https://duckduckgo.com/?q=`
+- **Google**: `https://www.google.com/` | `https://www.google.com/search?q=`
+- **Custom**: Custom **Homepage** and **Search Engine** URL fields (shown when **Custom** is selected)
 
 Settings and LZFSE-compressed browsing history (`BrowsingHistory`) are stored in `UserDefaults` under `com.lucianmarin.Monochrome`.
 

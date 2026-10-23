@@ -202,11 +202,11 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     private var currentPageBytes: Int64 = 0
 
     var homeURL: URL {
-        let homepage = defaults.string(forKey: "Homepage")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let homepage = defaults.string(forKey: SearchProvider.homepageKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if let url = URL(string: homepage), !homepage.isEmpty {
             return url
         }
-        return URL(string: "https://html.duckduckgo.com/html/")!
+        return URL(string: SearchProvider.defaultHomepage)!
     }
 
     private func toolbarSymbol(_ symbolName: String, fallback: NSImage.Name, description: String) -> NSImage? {
@@ -331,7 +331,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     @IBAction func openAddress(sender: Any) {
-        let searchEngine = defaults.string(forKey: "SearchEngine") ?? "https://html.duckduckgo.com/html/?q="
+        let searchEngine = defaults.string(forKey: SearchProvider.searchEngineKey) ?? SearchProvider.defaultSearchEngine
         let rawInput = (textField?.currentEditor()?.string ?? textField?.stringValue)?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let address = rawInput, !address.isEmpty else {
             return
