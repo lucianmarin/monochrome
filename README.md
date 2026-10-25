@@ -1,5 +1,7 @@
 # Monochrome
 
+![screenshot](screenshot.png)
+
 **Monochrome** is a lightweight, native mobile web browser for macOS built with AppKit and WebKit (`WKWebView`). It renders websites using an iPhone Safari user agent inside compact, mobile-sized macOS windows—ideal for distraction-free browsing, side-by-side reference windows, and testing responsive mobile layouts.
 
 ---
