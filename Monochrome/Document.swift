@@ -305,7 +305,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     @IBAction func resizeMini(sender: Any) {
-        resizeWindow(width: 360, height: 780)
+        resizeWindow(width: 360, height: 640)
     }
 
     @IBAction func resizeSE(sender: Any) {
@@ -313,15 +313,15 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     @IBAction func resizeE(sender: Any) {
-        resizeWindow(width: 390, height: 844)
+        resizeWindow(width: 390, height: 693)
     }
 
     @IBAction func resizePro(sender: Any) {
-        resizeWindow(width: 402, height: 874)
+        resizeWindow(width: 402, height: 715)
     }
 
     @IBAction func resizeMax(sender: Any) {
-        resizeWindow(width: 440, height: 956)
+        resizeWindow(width: 440, height: 782)
     }
 
     @IBAction func openLocation(sender: Any) {

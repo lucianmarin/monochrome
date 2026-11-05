@@ -9,7 +9,7 @@
 ## Features
 
 - **Mobile Viewport & User Agent**: Sends an iOS Safari (`iPhone`) user agent so websites serve their fast, clean mobile layouts on macOS.
-- **iPhone Viewport Presets**: Quickly switch between 6 standard iPhone logical viewport dimensions (`⌘1`–`⌘6`), defaulting to **SE (`375 × 667`)** with resizable bounds from `320 × 480` up to `440 × 956`.
+- **iPhone Viewport Presets**: Quickly switch between 6 standard iPhone logical viewport dimensions (`⌘1`–`⌘6`), defaulting to **iPhone SE (`375 × 667`)** with resizable bounds from `320 × 480` up to `440 × 956`.
 - **Compact Expanded Toolbar**: Native macOS toolbar displaying **Back**, **Reload / Stop**, **Home**, and the **Address** field by default, with optional customizable items (**Forward**, **New**, **Loading** indicator, spaces).
 - **Toggleable Status Bar**: Optional bottom status bar (hidden by default, toggleable from **View → Show Status Bar** or `⌘/`) showing the downloading page size and total site size (`KB` / `MB`) on the left and live window dimensions (`width × height px`) on the right.
 - **LZFSE-Compressed Browsing History**: Stores up to 1,000 normalized, deduplicated URLs in most-recently-used (MRU) order inside `UserDefaults` using Apple's LZFSE compression—requiring zero external database files.
@@ -26,12 +26,12 @@ Accessible from the **View** menu or via keyboard shortcuts:
 
 | Preset | Width | Height | Shortcut |
 | :--- | :--- | :--- | :--- |
-| **5s** (`320px`) | `320px` | `568px` | `⌘1` |
-| **Mini** (`360px`) | `360px` | `780px` | `⌘2` |
-| **SE** (`375px`) *(Default)* | `375px` | `667px` | `⌘3` |
-| **e** (`390px`) | `390px` | `844px` | `⌘4` |
-| **Pro** (`402px`) | `402px` | `874px` | `⌘5` |
-| **Max** (`440px`) | `440px` | `956px` | `⌘6` |
+| **iPhone 5s** (`320px`) | `320px` | `568px` | `⌘1` |
+| **iPhone Mini** (`360px`) | `360px` | `640px` | `⌘2` |
+| **iPhone SE** (`375px`) *(Default)* | `375px` | `667px` | `⌘3` |
+| **iPhone e** (`390px`) | `390px` | `693px` | `⌘4` |
+| **iPhone Pro** (`402px`) | `402px` | `715px` | `⌘5` |
+| **iPhone Max** (`440px`) | `440px` | `782px` | `⌘6` |
 
 ---
 
@@ -51,7 +51,7 @@ Accessible from the **View** menu or via keyboard shortcuts:
 | Preferences | `⌘,` |
 | Customize Toolbar | `⌥⌘T` |
 | Show / Hide Status Bar | `⌘/` |
-| Resize Window (`5s` – `Max`) | `⌘1` – `⌘6` |
+| Resize Window (`iPhone 5s` – `iPhone Max`) | `⌘1` – `⌘6` |
 
 ---
 
@@ -80,12 +80,15 @@ Settings and LZFSE-compressed browsing history (`BrowsingHistory`) are stored in
 
 ## Building & Running
 
-1. Open `Monochrome.xcodeproj` in Xcode (Swift 5, macOS SDK).
-2. Select the **Monochrome** scheme and press **Run** (`⌘R`), or build from the command line:
+Build and launch from the command line using `make`:
 
 ```bash
-xcodebuild -project Monochrome.xcodeproj -scheme Monochrome -configuration Release build
+make app   # Build Monochrome.app in the project root
+make run   # Build and launch Monochrome.app
+make clean # Remove build artifacts
 ```
+
+Or open `Monochrome.xcodeproj` in Xcode (Swift 5, macOS SDK), select the **Monochrome** scheme, and press **Run** (`⌘R`).
 
 ---
 

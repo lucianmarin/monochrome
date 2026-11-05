@@ -1,4 +1,6 @@
 .DS_Store
+.build
+Monochrome.app
 xcuserdata
 xcuserdata/*
 
