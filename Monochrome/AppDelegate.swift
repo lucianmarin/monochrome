@@ -12,6 +12,7 @@ enum SearchProvider: String, CaseIterable {
     case brave
     case duckDuckGo = "duckduckgo"
     case google
+    case kagi
     case custom
 
     static let defaultsKey = "SearchProvider"
@@ -28,6 +29,7 @@ enum SearchProvider: String, CaseIterable {
         case .brave: return "Brave"
         case .duckDuckGo: return "DuckDuckGo"
         case .google: return "Google"
+        case .kagi: return "Kagi"
         case .custom: return "Custom"
         }
     }
@@ -37,6 +39,7 @@ enum SearchProvider: String, CaseIterable {
         case .brave: return "https://search.brave.com/"
         case .duckDuckGo: return "https://duckduckgo.com/"
         case .google: return "https://www.google.com/"
+        case .kagi: return "https://kagi.com/"
         case .custom: return nil
         }
     }
@@ -46,6 +49,7 @@ enum SearchProvider: String, CaseIterable {
         case .brave: return "https://search.brave.com/search?q="
         case .duckDuckGo: return "https://duckduckgo.com/?q="
         case .google: return "https://www.google.com/search?q="
+        case .kagi: return "https://kagi.com/search?q="
         case .custom: return nil
         }
     }

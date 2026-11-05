@@ -15,7 +15,7 @@ final class BrowsingHistory {
     static let shared = BrowsingHistory()
 
     private let storageKey = "BrowsingHistory"
-    private let maxEntries = 1000
+    private let maxEntries = 8192
     private var entries: [String] = []
 
     private init() {
@@ -146,6 +146,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     @IBOutlet var home: NSButton!
     @IBOutlet var new: NSButton!
     @IBOutlet var reload: NSButton!
+    @IBOutlet var favicon: NSButton!
     @IBOutlet var loading: NSProgressIndicator!
 
     private enum ToolbarItemID {
@@ -155,12 +156,36 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         static let address = NSToolbarItem.Identifier("Address")
         static let reload = NSToolbarItem.Identifier("Reload")
         static let new = NSToolbarItem.Identifier("New")
+        static let favicon = NSToolbarItem.Identifier("Favicon")
         static let loading = NSToolbarItem.Identifier("Loading")
     }
 
     private static let windowFrameAutosaveKey = "MonochromeWindow"
     private static let statusBarDefaultsKey = "ShowStatusBar"
     private static let statusBarHeight: CGFloat = 22
+    private static var faviconCache: [String: NSImage] = [:]
+    private static let faviconScript = """
+    (function() {
+        var selectors = [
+            "link[rel='icon']",
+            "link[rel='shortcut icon']",
+            "link[rel='apple-touch-icon']",
+            "link[rel='apple-touch-icon-precomposed']",
+            "link[rel*='icon']"
+        ];
+        var urls = [];
+        for (var i = 0; i < selectors.length; i++) {
+            var nodes = document.querySelectorAll(selectors[i]);
+            for (var j = 0; j < nodes.length; j++) {
+                var href = nodes[j].href;
+                if (href && urls.indexOf(href) === -1) {
+                    urls.push(href);
+                }
+            }
+        }
+        return urls;
+    })();
+    """
     private static let pageSizeScript = """
     (function() {
         function entryBytes(e) {
@@ -191,6 +216,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     private var observations: [NSKeyValueObservation] = []
     private var lastCommandWasDelete = false
     private var isAutocompleting = false
+    private var pendingAutocompleteRange: NSRange?
     private var isWindowFrameRestored = false
     private var isStatusBarVisible = defaults.bool(forKey: Document.statusBarDefaultsKey)
     private var statusBarView: NSView?
@@ -198,6 +224,8 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     private var statusSizeLabel: NSTextField?
     private var webViewBottomConstraint: NSLayoutConstraint?
     private var statusSizeTimer: Timer?
+    private var faviconTask: URLSessionDataTask?
+    private var currentFaviconHost: String?
     private var hasCommittedNavigation = false
     private var currentPageBytes: Int64 = 0
 
@@ -243,6 +271,14 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         webView.load(requested)
     }
 
+    @IBAction func copyURL(_ sender: Any?) {
+        let urlString = webView?.url?.absoluteString ?? textField?.stringValue.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !urlString.isEmpty else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(urlString, forType: .string)
+    }
+
     @IBAction func reloadOrStop(sender: Any) {
         if webView.isLoading {
             webView.stopLoading()
@@ -285,6 +321,8 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     func windowWillClose(_ notification: Notification) {
         statusSizeTimer?.invalidate()
         statusSizeTimer = nil
+        faviconTask?.cancel()
+        faviconTask = nil
         guard isWindowFrameRestored else { return }
         (notification.object as? NSWindow ?? mainWindow)?.saveFrame(usingName: Self.windowFrameAutosaveKey)
     }
@@ -326,12 +364,14 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
 
     @IBAction func openLocation(sender: Any) {
         guard let window = mainWindow ?? windowControllers.first?.window else { return }
+        pendingAutocompleteRange = nil
         window.makeFirstResponder(textField)
         textField?.selectText(sender)
     }
 
     @IBAction func openAddress(sender: Any) {
         let searchEngine = defaults.string(forKey: SearchProvider.searchEngineKey) ?? SearchProvider.defaultSearchEngine
+        pendingAutocompleteRange = nil
         let rawInput = (textField?.currentEditor()?.string ?? textField?.stringValue)?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let address = rawInput, !address.isEmpty else {
             return
@@ -356,21 +396,85 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
     }
 
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-        if commandSelector == #selector(NSResponder.deleteBackward(_:)) ||
-           commandSelector == #selector(NSResponder.deleteForward(_:)) ||
+        if commandSelector == #selector(NSResponder.deleteBackward(_:)) {
+            if let range = pendingAutocompleteRange,
+               range.location + range.length <= (textView.string as NSString).length {
+                isAutocompleting = true
+                textView.replaceCharacters(in: range, with: "")
+                textView.selectedRange = NSRange(location: range.location, length: 0)
+                textField?.stringValue = textView.string
+                isAutocompleting = false
+                pendingAutocompleteRange = nil
+                lastCommandWasDelete = false
+                return true
+            }
+            lastCommandWasDelete = true
+            return false
+        }
+
+        if commandSelector == #selector(NSResponder.deleteForward(_:)) ||
            commandSelector == #selector(NSResponder.deleteWordBackward(_:)) ||
            commandSelector == #selector(NSResponder.deleteToBeginningOfLine(_:)) {
             lastCommandWasDelete = true
+            pendingAutocompleteRange = nil
+            return false
         }
+
+        if commandSelector == #selector(NSResponder.insertTab(_:)) {
+            if let range = pendingAutocompleteRange {
+                pendingAutocompleteRange = nil
+                let end = min((textView.string as NSString).length, range.location + range.length)
+                textView.selectedRange = NSRange(location: end, length: 0)
+                textField?.stringValue = textView.string
+                return true
+            }
+            let currentText = textView.string
+            if !currentText.isEmpty,
+               let suggestion = BrowsingHistory.shared.suggestion(for: currentText),
+               suggestion.count > currentText.count {
+                isAutocompleting = true
+                textView.string = suggestion
+                textView.selectedRange = NSRange(location: (suggestion as NSString).length, length: 0)
+                textField?.stringValue = suggestion
+                isAutocompleting = false
+                return true
+            }
+        }
+
+        if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            if let range = pendingAutocompleteRange {
+                pendingAutocompleteRange = nil
+                let end = min((textView.string as NSString).length, range.location + range.length)
+                textView.selectedRange = NSRange(location: end, length: 0)
+                textField?.stringValue = textView.string
+            }
+            return false
+        }
+
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            if let range = pendingAutocompleteRange,
+               range.location + range.length <= (textView.string as NSString).length {
+                isAutocompleting = true
+                textView.replaceCharacters(in: range, with: "")
+                textView.selectedRange = NSRange(location: range.location, length: 0)
+                textField?.stringValue = textView.string
+                isAutocompleting = false
+                pendingAutocompleteRange = nil
+                return true
+            }
+        }
+
         return false
     }
 
     func controlTextDidChange(_ obj: Notification) {
         defer { lastCommandWasDelete = false }
         guard !isAutocompleting,
-              !lastCommandWasDelete,
-              let editor = obj.userInfo?["NSFieldEditor"] as? NSTextView,
-              !editor.hasMarkedText() else {
+              let editor = obj.userInfo?["NSFieldEditor"] as? NSTextView else {
+            return
+        }
+        pendingAutocompleteRange = nil
+        guard !lastCommandWasDelete, !editor.hasMarkedText() else {
             return
         }
 
@@ -391,10 +495,12 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         guard nsSuggestion.length > nsCurrent.length else { return }
 
         let suffix = nsSuggestion.substring(from: nsCurrent.length)
+        let suffixRange = NSRange(location: nsCurrent.length, length: (suffix as NSString).length)
         isAutocompleting = true
         editor.replaceCharacters(in: NSRange(location: nsCurrent.length, length: 0), with: suffix)
-        editor.selectedRange = NSRange(location: nsCurrent.length, length: (suffix as NSString).length)
+        editor.selectedRange = suffixRange
         isAutocompleting = false
+        pendingAutocompleteRange = suffixRange
     }
 
     private func updateLoadingState(isLoading: Bool) {
@@ -460,10 +566,98 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         statusSizeLabel?.stringValue = "\(width) × \(height) px"
     }
 
+    private func defaultFaviconImage() -> NSImage {
+        return toolbarSymbol("globe", fallback: NSImage.networkName, description: "Favicon") ?? NSImage()
+    }
+
+    private func updateFaviconForCurrentHost() {
+        let host = webView?.url?.host?.lowercased()
+        if host != currentFaviconHost {
+            currentFaviconHost = host
+            faviconTask?.cancel()
+            faviconTask = nil
+            if let host = host, let cached = Self.faviconCache[host] {
+                favicon?.image = cached
+            } else {
+                favicon?.image = defaultFaviconImage()
+            }
+        }
+    }
+
+    private func fetchFavicon() {
+        guard let pageURL = webView?.url,
+              let scheme = pageURL.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              let host = pageURL.host?.lowercased() else {
+            favicon?.image = defaultFaviconImage()
+            return
+        }
+
+        updateFaviconForCurrentHost()
+
+        webView?.evaluateJavaScript(Self.faviconScript) { [weak self] result, _ in
+            guard let self = self else { return }
+            var candidates: [URL] = []
+            if let hrefs = result as? [String] {
+                for href in hrefs {
+                    if let url = URL(string: href), !candidates.contains(url) {
+                        candidates.append(url)
+                    }
+                }
+            }
+            var originComponents = URLComponents()
+            originComponents.scheme = scheme
+            originComponents.host = pageURL.host
+            originComponents.port = pageURL.port
+            originComponents.path = "/favicon.ico"
+            if let fallbackURL = originComponents.url, !candidates.contains(fallbackURL) {
+                candidates.append(fallbackURL)
+            }
+            self.loadFaviconCandidates(candidates, forHost: host)
+        }
+    }
+
+    private func loadFaviconCandidates(_ candidates: [URL], forHost host: String) {
+        guard let nextURL = candidates.first else { return }
+        let remaining = Array(candidates.dropFirst())
+
+        faviconTask?.cancel()
+        var request = URLRequest(url: nextURL, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 10)
+        if let userAgent = webView?.customUserAgent, !userAgent.isEmpty {
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        }
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 200
+            let validImage: NSImage?
+            if statusCode < 400, let data = data, !data.isEmpty, let image = NSImage(data: data), image.isValid {
+                image.size = NSSize(width: 16, height: 16)
+                image.isTemplate = false
+                validImage = image
+            } else {
+                validImage = nil
+            }
+
+            DispatchQueue.main.async {
+                guard let self = self, self.webView?.url?.host?.lowercased() == host else { return }
+                if let icon = validImage {
+                    Self.faviconCache[host] = icon
+                    self.favicon?.image = icon
+                } else if !remaining.isEmpty {
+                    self.loadFaviconCandidates(remaining, forHost: host)
+                }
+            }
+        }
+        faviconTask = task
+        task.resume()
+    }
+
     private func updateNavigationState() {
         back?.isEnabled = webView?.canGoBack ?? false
         forward?.isEnabled = webView?.canGoForward ?? false
         home?.isEnabled = webView?.url != homeURL
+        favicon?.isEnabled = webView?.url != nil
+        updateFaviconForCurrentHost()
 
         if let currentURL = webView?.url?.absoluteString,
            mainWindow?.firstResponder != textField?.currentEditor() {
@@ -519,6 +713,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         }
         updateLoadingState(isLoading: false)
         updateNavigationState()
+        fetchFavicon()
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -576,6 +771,9 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
 
         new = makeToolbarButton(symbol: "plus", fallback: NSImage.addTemplateName, label: "New", action: #selector(NSDocumentController.newDocument(_:)), target: nil)
 
+        favicon = makeToolbarButton(symbol: "globe", fallback: NSImage.networkName, label: "Copy URL", action: #selector(copyURL(_:)), target: self)
+        favicon.isEnabled = false
+
         let addressField = NSTextField()
         addressField.bezelStyle = .roundedBezel
         addressField.usesSingleLineMode = true
@@ -606,6 +804,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = true
+        toolbar.autosavesConfiguration = true
         window.toolbar = toolbar
     }
 
@@ -681,6 +880,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
             ToolbarItemID.back,
             ToolbarItemID.reload,
             ToolbarItemID.home,
+            ToolbarItemID.favicon,
             ToolbarItemID.address,
             ToolbarItemID.forward,
             ToolbarItemID.new,
@@ -733,6 +933,10 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
             item.label = "New"
             item.paletteLabel = "New"
             item.view = flag ? new : makeToolbarButton(symbol: "plus", fallback: NSImage.addTemplateName, label: "New", action: #selector(NSDocumentController.newDocument(_:)), target: nil)
+        case ToolbarItemID.favicon:
+            item.label = "Favicon"
+            item.paletteLabel = "Favicon"
+            item.view = flag ? favicon : makeToolbarButton(symbol: "globe", fallback: NSImage.networkName, label: "Copy URL", action: #selector(copyURL(_:)), target: self)
         case ToolbarItemID.loading:
             item.label = "Loading"
             item.paletteLabel = "Loading"
@@ -794,6 +998,7 @@ class Document: NSDocument, NSWindowDelegate, WKNavigationDelegate, WKUIDelegate
 
     deinit {
         statusSizeTimer?.invalidate()
+        faviconTask?.cancel()
     }
 
     override var isDocumentEdited: Bool {

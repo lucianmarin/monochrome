@@ -10,10 +10,10 @@
 
 - **Mobile Viewport & User Agent**: Sends an iOS Safari (`iPhone`) user agent so websites serve their fast, clean mobile layouts on macOS.
 - **iPhone Viewport Presets**: Quickly switch between 6 standard iPhone logical viewport dimensions (`⌘1`–`⌘6`), defaulting to **iPhone SE (`375 × 667`)** with resizable bounds from `320 × 480` up to `440 × 956`.
-- **Compact Expanded Toolbar**: Native macOS toolbar displaying **Back**, **Reload / Stop**, **Home**, and the **Address** field by default, with optional customizable items (**Forward**, **New**, **Loading** indicator, spaces).
+- **Compact Expanded Toolbar**: Native macOS toolbar displaying **Back**, **Reload / Stop**, **Home**, and the **Address** field by default, with optional customizable items (**Favicon** to display the site icon and copy the current URL, **Forward**, **New**, **Loading** indicator, spaces).
 - **Toggleable Status Bar**: Optional bottom status bar (hidden by default, toggleable from **View → Show Status Bar** or `⌘/`) showing the downloading page size and total site size (`KB` / `MB`) on the left and live window dimensions (`width × height px`) on the right.
-- **LZFSE-Compressed Browsing History**: Stores up to 1,000 normalized, deduplicated URLs in most-recently-used (MRU) order inside `UserDefaults` using Apple's LZFSE compression—requiring zero external database files.
-- **Inline Address Bar Autocomplete**: Suggests and highlights matching URL suffixes from browsing history as you type, handling optional `http(s)://` and `www.` prefixes and prioritizing clean paths before query strings.
+- **LZFSE-Compressed Browsing History**: Stores up to 8,192 normalized, deduplicated URLs in most-recently-used (MRU) order inside `UserDefaults` using Apple's LZFSE compression—requiring zero external database files.
+- **Inline Address Bar Autocomplete**: Suggests and highlights matching URL suffixes from browsing history as you type; press `Tab` or `Return` to accept the suggestion, or `Backspace` to clear it.
 - **Smart Address & Search Bar**: Navigates directly to URLs or domains and routes search queries through a configurable search engine (defaulting to DuckDuckGo: `https://duckduckgo.com/?q=`).
 - **Multi-Window & Tabbed Browsing**: Built on `NSDocument` to support multiple independent browser windows and native macOS window tabs (`⌘N`, `⌘T`).
 - **Trackpad Gestures & Zoom**: Supports two-finger swipe back/forward navigation gestures and pinch-to-zoom magnification.
@@ -62,6 +62,7 @@ Open **Monochrome → Preferences…** (`⌘,`) to choose a homepage and search 
 - **Brave**: `https://search.brave.com/` | `https://search.brave.com/search?q=`
 - **DuckDuckGo** *(Default)*: `https://duckduckgo.com/` | `https://duckduckgo.com/?q=`
 - **Google**: `https://www.google.com/` | `https://www.google.com/search?q=`
+- **Kagi**: `https://kagi.com/` | `https://kagi.com/search?q=`
 - **Custom**: Custom **Homepage** and **Search Engine** URL fields (shown when **Custom** is selected)
 
 Settings and LZFSE-compressed browsing history (`BrowsingHistory`) are stored in `UserDefaults` under `com.lucianmarin.Monochrome`.
