@@ -91,8 +91,3 @@ make clean # Remove build artifacts
 
 Or open `Monochrome.xcodeproj` in Xcode (Swift 5, macOS SDK), select the **Monochrome** scheme, and press **Run** (`⌘R`).
 
----
-
-## License
-
-Copyright © Lucian Marin. All rights reserved.
